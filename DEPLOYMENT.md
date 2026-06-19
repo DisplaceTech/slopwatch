@@ -4,6 +4,9 @@ Firefox (AMO) is the primary distribution target; Chromium (Chrome Web Store) is
 single WXT source tree builds for both. This document covers building, signing, store submission,
 CI automation, and rollback.
 
+> **Looking for the step-by-step runbook?** See [`RELEASING.md`](./RELEASING.md) — the operator's
+> guide for actually cutting a release. This document is the design/policy behind it.
+
 ---
 
 ## Build Targets & Artifacts

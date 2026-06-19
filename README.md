@@ -103,7 +103,8 @@ Treat it as a nudge to look closer. Not a gavel.
 | [`TDD.md`](./TDD.md) | Full technical design: architecture, provider interface, NFRs, decisions, tickets |
 | [`ROADMAP.md`](./ROADMAP.md) | Milestones M0–M5 with Definitions of Done and advancement criteria |
 | [`TESTING.md`](./TESTING.md) | Test pyramid, fixtures, what we test vs. deliberately don't, CI gates |
-| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Build, sign, and store-submission pipeline (Firefox-first) |
+| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Build, sign, and store-submission pipeline design (Firefox-first) |
+| [`RELEASING.md`](./RELEASING.md) | The maintainer's runbook: how to cut a release people can install |
 | [`USABILITY.md`](./USABILITY.md) | Interaction states, result presentation, accessibility, responsible-use UX |
 | [`CLAUDE.md`](./CLAUDE.md) | Guidance for AI agents/humans: invariants, layout, commands, conventions |
 
