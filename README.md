@@ -74,4 +74,4 @@ closer, not as proof.
 
 ## License
 
-⚠️ TODO: choose a license.
+[MIT](./LICENSE) © 2026 Displace Technologies, LLC.

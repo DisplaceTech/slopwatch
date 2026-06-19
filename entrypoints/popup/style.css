@@ -1,0 +1,54 @@
+:root {
+  color-scheme: light dark;
+  --fg: #1a1a1a;
+  --muted: #5c5c5c;
+  --bg: #ffffff;
+  --accent: #6b4ea0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #ececec;
+    --muted: #a0a0a0;
+    --bg: #1c1c1e;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.popup {
+  width: 320px;
+  padding: 16px;
+}
+
+.popup h1 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+
+.tagline {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.status {
+  font-size: 0.9rem;
+}
+
+.caveat {
+  margin-top: 12px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border-top: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+  padding-top: 8px;
+}

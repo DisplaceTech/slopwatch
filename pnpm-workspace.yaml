@@ -1,0 +1,9 @@
+allowBuilds:
+  esbuild: true
+  spawn-sync: true
+
+# WXT builds on Vite 8 (object-form plugin hook `filter`s). Vitest otherwise
+# resolves its own Vite 5, which ignores those filters and lets WXT's download
+# plugin intercept Vitest's HMR-client import. Force one Vite across the tree.
+overrides:
+  vite: 8.0.16
