@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Orchestrator, type OrchestratorDeps } from '@/lib/orchestrator';
 import { MockProvider } from '@/lib/providers';
 import { DEFAULT_SETTINGS, type Settings } from '@/lib/storage/settings';
-import type { AnalysisProvider, ExtractedContent } from '@/lib/types';
+import type { AnalysisProvider, AnalysisResult, ExtractedContent } from '@/lib/types';
 import { ProviderError } from '@/lib/errors';
 
 function content(): ExtractedContent {
@@ -21,9 +21,11 @@ function content(): ExtractedContent {
 
 function makeDeps(overrides: Partial<OrchestratorDeps> = {}): {
   deps: OrchestratorDeps;
-  calls: { annotate: number; inject: number; badges: string[] };
+  calls: { annotate: number; inject: number; badges: string[]; cacheSets: number };
+  cache: Map<string, AnalysisResult>;
 } {
-  const calls = { annotate: 0, inject: 0, badges: [] as string[] };
+  const calls = { annotate: 0, inject: 0, badges: [] as string[], cacheSets: 0 };
+  const cache = new Map<string, AnalysisResult>();
   const settings: Settings = { ...DEFAULT_SETTINGS, activeProvider: 'mock' };
   const deps: OrchestratorDeps = {
     getSettings: async () => settings,
@@ -38,9 +40,14 @@ function makeDeps(overrides: Partial<OrchestratorDeps> = {}): {
     setBadge: async (_tabId, text) => {
       calls.badges.push(text);
     },
+    cacheGet: async (url, hash) => cache.get(`${url}\n${hash}`),
+    cacheSet: async (url, hash, result) => {
+      calls.cacheSets++;
+      cache.set(`${url}\n${hash}`, result);
+    },
     ...overrides,
   };
-  return { deps, calls };
+  return { deps, calls, cache };
 }
 
 describe('Orchestrator', () => {
@@ -121,6 +128,34 @@ describe('Orchestrator', () => {
     await first;
     // Provider only constructed once despite two analyze calls.
     expect(createProvider).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves a cache hit without calling the provider, and a forced re-run bypasses it', async () => {
+    const createProvider = vi.fn(async (s) => new MockProvider('mock-1', s.thresholds));
+    const { deps, calls } = makeDeps({ createProvider });
+    const o = new Orchestrator(deps);
+
+    // First run: cache miss → provider runs, result stored.
+    const first = await o.analyze(10);
+    expect(first.status).toBe('results');
+    if (first.status !== 'results') return;
+    expect(first.cached).toBe(false);
+    expect(calls.cacheSets).toBe(1);
+    expect(createProvider).toHaveBeenCalledTimes(1);
+
+    // Second run (not forced): cache hit → no provider call.
+    const second = await o.analyze(10, false);
+    expect(second.status).toBe('results');
+    if (second.status !== 'results') return;
+    expect(second.cached).toBe(true);
+    expect(createProvider).toHaveBeenCalledTimes(1);
+
+    // Forced re-run: bypasses the cache → provider runs again.
+    const third = await o.analyze(10, true);
+    expect(third.status).toBe('results');
+    if (third.status !== 'results') return;
+    expect(third.cached).toBe(false);
+    expect(createProvider).toHaveBeenCalledTimes(2);
   });
 
   it('forgetTab clears cached status', async () => {

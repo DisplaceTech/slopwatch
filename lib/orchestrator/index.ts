@@ -1,6 +1,7 @@
 import type { AnalysisProvider, AnalysisResult } from '../types';
 import type { Settings } from '../storage/settings';
 import { serializeProviderError } from '../errors';
+import { applyBudget } from '../analysis/budgeter';
 import type { AnalysisOutcome, ExtractOutcome, RunContext, TabStatus } from '../messaging';
 
 /**
@@ -17,6 +18,9 @@ export interface OrchestratorDeps {
   extract(tabId: number): Promise<ExtractOutcome>;
   annotate(tabId: number, result: AnalysisResult): Promise<void>;
   setBadge(tabId: number, text: string): Promise<void>;
+  /** Result cache, keyed by url + contentHash. */
+  cacheGet(url: string, contentHash: string): Promise<AnalysisResult | undefined>;
+  cacheSet(url: string, contentHash: string, result: AnalysisResult): Promise<void>;
 }
 
 export class Orchestrator {
@@ -73,10 +77,30 @@ export class Orchestrator {
         return { status: 'no-content' };
       }
 
+      // Bound request size/cost; over-budget pages are head/middle/tail sampled.
+      const budgeted = applyBudget(extracted.content, settings.wordBudget);
+
+      // Cache hit (unless this is a forced re-run): skip the provider entirely.
+      if (!force) {
+        const cached = await this.deps.cacheGet(budgeted.url, budgeted.contentHash);
+        if (cached) {
+          await this.deps.annotate(tabId, cached);
+          this.statusByTab.set(tabId, {
+            phase: 'results',
+            context: { provider: cached.provider, model: cached.model, ranLocally: cached.ranLocally },
+            result: cached,
+            cached: true,
+          });
+          await this.deps.setBadge(tabId, String(Math.round(cached.overall * 100)));
+          return { status: 'results', result: cached, cached: true };
+        }
+      }
+
       this.statusByTab.set(tabId, { phase: 'analyzing', context });
       try {
         const provider = await this.deps.createProvider(settings);
-        const result = await provider.analyze(extracted.content, controller.signal);
+        const result = await provider.analyze(budgeted, controller.signal);
+        await this.deps.cacheSet(budgeted.url, budgeted.contentHash, result);
         await this.deps.annotate(tabId, result);
         this.statusByTab.set(tabId, {
           phase: 'results',
