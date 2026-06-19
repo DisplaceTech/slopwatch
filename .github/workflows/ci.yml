@@ -41,5 +41,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: extension-builds
-          path: .output/*-mv3/
+          path: |
+            .output/chrome-mv3
+            .output/firefox-mv3
           if-no-files-found: error
