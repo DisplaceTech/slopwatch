@@ -1,36 +1,80 @@
 import { defineBackground } from 'wxt/utils/define-background';
-import { onBackgroundMessage, type TabStatus } from '@/lib/messaging';
+import { browser } from 'wxt/browser';
+import { onBackgroundMessage, sendToTab } from '@/lib/messaging';
 import { getSettings } from '@/lib/storage';
+import { createProvider } from '@/lib/providers';
+import { serializeProviderError } from '@/lib/errors';
+import { Orchestrator } from '@/lib/orchestrator';
+import type { AnalysisResult } from '@/lib/types';
 
 /**
- * Background orchestrator (event page on Firefox, service worker on Chromium).
- * M0: stub that answers status/cancel so the popup can render. The click→extract
- * →analyze→annotate pipeline is wired in M1.
+ * Background entrypoint (event page on Firefox, service worker on Chromium).
+ * Thin: it wires real browser dependencies into the Orchestrator and routes
+ * typed messages. All analysis logic lives in lib/orchestrator (testable).
  */
 export default defineBackground(() => {
+  async function setBadge(tabId: number, text: string): Promise<void> {
+    try {
+      await browser.action.setBadgeText({ tabId, text });
+      if (text) await browser.action.setBadgeBackgroundColor({ tabId, color: '#6b4ea0' });
+    } catch {
+      // Best-effort; tab may be gone.
+    }
+  }
+
+  const orchestrator = new Orchestrator({
+    getSettings,
+    createProvider,
+    injectInpage: async (tabId) => {
+      await browser.scripting.executeScript({ target: { tabId }, files: ['/inpage.js'] });
+    },
+    extract: (tabId) => sendToTab(tabId, { channel: 'content', type: 'extract' }),
+    annotate: async (tabId: number, result: AnalysisResult) => {
+      try {
+        await sendToTab(tabId, { channel: 'content', type: 'annotate', result });
+      } catch {
+        // Page may block injection; the popup still shows the result.
+      }
+    },
+    setBadge,
+  });
+
+  browser.tabs.onRemoved.addListener((tabId) => orchestrator.forgetTab(tabId));
+  browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.url) {
+      orchestrator.forgetTab(tabId);
+      void setBadge(tabId, '');
+    }
+  });
+
   onBackgroundMessage(async (msg) => {
     switch (msg.type) {
-      case 'getStatus': {
-        const settings = await getSettings();
-        const status: TabStatus = {
-          phase: 'idle',
-          context: {
-            provider: settings.activeProvider,
-            model: settings.providers[settings.activeProvider].model,
-            ranLocally: settings.activeProvider === 'ollama',
-          },
-        };
-        return status;
-      }
-      case 'cancel':
-        return { ok: true };
+      case 'getStatus':
+        return orchestrator.getStatus(msg.tabId);
       case 'analyze':
-        // Implemented in M1.
-        return { status: 'error', error: { __providerError: true, kind: 'unknown', message: 'Not implemented yet', retryable: false } };
-      case 'testConnection':
-        return { ok: false, detail: 'Not implemented yet' };
-      case 'listModels':
-        return { ok: false, error: { __providerError: true, kind: 'unknown', message: 'Not implemented yet', retryable: false } };
+        return orchestrator.analyze(msg.tabId, msg.force);
+      case 'cancel':
+        orchestrator.cancel(msg.tabId);
+        return { ok: true };
+      case 'testConnection': {
+        const settings = await getSettings();
+        try {
+          const provider = await createProvider({ ...settings, activeProvider: msg.provider });
+          return await provider.validate();
+        } catch (err) {
+          return { ok: false, detail: serializeProviderError(err).message };
+        }
+      }
+      case 'listModels': {
+        const settings = await getSettings();
+        try {
+          const provider = await createProvider({ ...settings, activeProvider: msg.provider });
+          const models = provider.listModels ? await provider.listModels() : [];
+          return { ok: true, models };
+        } catch (err) {
+          return { ok: false, error: serializeProviderError(err) };
+        }
+      }
     }
   });
 });
