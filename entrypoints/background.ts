@@ -32,7 +32,8 @@ export default defineBackground(() => {
     extract: (tabId) => sendToTab(tabId, { channel: 'content', type: 'extract' }),
     annotate: async (tabId: number, result: AnalysisResult) => {
       try {
-        await sendToTab(tabId, { channel: 'content', type: 'annotate', result });
+        const { appearance } = await getSettings();
+        await sendToTab(tabId, { channel: 'content', type: 'annotate', result, appearance });
       } catch {
         // Page may block injection; the popup still shows the result.
       }

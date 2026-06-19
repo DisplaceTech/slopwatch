@@ -1,6 +1,7 @@
 import { browser } from 'wxt/browser';
 import type { AnalysisResult, ExtractedContent, ProviderId } from '../types';
 import type { SerializedProviderError } from '../errors';
+import type { Appearance } from '../storage/settings';
 
 /**
  * Typed message contracts between the popup/options (UI), the background
@@ -14,7 +15,12 @@ import type { SerializedProviderError } from '../errors';
 // ---------------------------------------------------------------------------
 
 export type ExtractMessage = { channel: 'content'; type: 'extract' };
-export type AnnotateMessage = { channel: 'content'; type: 'annotate'; result: AnalysisResult };
+export type AnnotateMessage = {
+  channel: 'content';
+  type: 'annotate';
+  result: AnalysisResult;
+  appearance?: Appearance;
+};
 export type ClearAnnotationsMessage = { channel: 'content'; type: 'clearAnnotations' };
 export type ContentMessage = ExtractMessage | AnnotateMessage | ClearAnnotationsMessage;
 

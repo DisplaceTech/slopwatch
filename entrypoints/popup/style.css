@@ -205,3 +205,29 @@ button.secondary:focus-visible {
 .error .status {
   font-weight: 600;
 }
+
+.fp-note {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+
+.meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 12px 0 0;
+  word-break: break-word;
+}
+
+.firstrun {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  margin-bottom: 12px;
+}
+
+.firstrun a {
+  color: var(--accent);
+  font-weight: 600;
+}

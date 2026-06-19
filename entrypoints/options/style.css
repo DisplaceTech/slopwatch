@@ -98,6 +98,20 @@ input:not([type]) {
   flex: 1;
 }
 
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+
 button {
   font: inherit;
   font-size: 0.88rem;

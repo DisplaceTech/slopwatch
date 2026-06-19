@@ -8,6 +8,21 @@ All notable changes to Slopwatch are documented here. Format follows
 
 ### Added
 
+- **M3 — Robustness & UX polish.**
+  - Token/char budgeter: over-budget pages are head/middle/tail sampled with an
+    "analyzed ~N%" notice, keeping original segment indices so highlights still map.
+  - LRU + TTL result cache (storage.local, 7-day TTL, 200-entry cap) keyed by
+    url + content hash; cache hits skip the provider, a forced Re-run bypasses it.
+  - Popup detail: usage/tokens/cost/latency line, cached-result timestamp, sampled
+    notice, and an inline false-positive caveat; Run uses the cache, Re-run forces.
+  - Configurable highlight appearance (style + high-contrast) wired through to the
+    Shadow-DOM layer; honors `prefers-reduced-motion` / `prefers-color-scheme`.
+  - Options: threshold sliders with an enforced non-removable Uncertain band,
+    appearance controls, clear-cache + cache stats, optional local-diagnostics
+    toggle, and a first-run hint in the popup.
+  - Tests: budgeter, cache, and component/a11y tests (Testing Library + axe-core)
+    for the popup and options — 99 total.
+
 - **M2 — Real providers (Anthropic + Ollama).** Grind on real pages with your own
   model:
   - `AnthropicProvider` — Messages API with the required browser headers

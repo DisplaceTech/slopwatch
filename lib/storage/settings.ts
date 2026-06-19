@@ -29,7 +29,8 @@ const thresholdsSchema = z
     /** overall > aiMin → likely-ai. */
     aiMin: z.number().min(0).max(1),
   })
-  .refine((t) => t.aiMin - t.humanMax >= MIN_UNCERTAIN_BAND, {
+  // Epsilon guards against floating-point drift (e.g. 0.65 - 0.55 = 0.0999…).
+  .refine((t) => t.aiMin - t.humanMax >= MIN_UNCERTAIN_BAND - 1e-9, {
     message: 'Uncertain band must be at least MIN_UNCERTAIN_BAND wide',
   });
 
@@ -53,10 +54,13 @@ export const settingsSchema = z.object({
   diagnosticsEnabled: z.boolean(),
   /** Max words of extracted text sent per analysis (scaling axis). */
   wordBudget: z.number().int().positive(),
+  /** Whether the user has completed (or dismissed) first-run setup. */
+  onboarded: z.boolean(),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
 export type Thresholds = Settings['thresholds'];
+export type Appearance = Settings['appearance'];
 
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
@@ -72,6 +76,7 @@ export const DEFAULT_SETTINGS: Settings = {
   persistSecrets: false,
   diagnosticsEnabled: false,
   wordBudget: 6000,
+  onboarded: false,
 };
 
 /** Parse an unknown stored value, falling back to defaults on any corruption. */

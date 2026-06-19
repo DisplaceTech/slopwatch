@@ -6,11 +6,15 @@ import {
   clearSecret,
   hasSecret,
   applyPersistencePreference,
+  HIGHLIGHT_STYLES,
+  MIN_UNCERTAIN_BAND,
+  type HighlightStyle,
   type Settings,
 } from '@/lib/storage';
 import { sendToBackground } from '@/lib/messaging';
 import { requestProviderPermission } from '@/lib/permissions';
 import { ollamaOriginsSnippet } from '@/lib/providers';
+import { clearCache, cacheStats } from '@/lib/cache';
 import type { ProviderId } from '@/lib/types';
 
 type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; detail?: string };
@@ -28,11 +32,13 @@ export function App() {
   const [keyInput, setKeyInput] = useState('');
   const [test, setTest] = useState<Record<string, TestState>>({});
   const [ollamaModels, setOllamaModels] = useState<string[] | null>(null);
+  const [cacheEntries, setCacheEntries] = useState<number | null>(null);
 
   useEffect(() => {
     void (async () => {
       setSettings(await getSettings());
       setConfigured(await hasSecret('anthropic'));
+      setCacheEntries((await cacheStats()).entries);
     })();
   }, []);
 
@@ -40,7 +46,20 @@ export function App() {
 
   const patch = async (p: Partial<Settings>) => setSettings(await updateSettings(p));
 
-  const setProvider = (id: ProviderId) => patch({ activeProvider: id });
+  // Selecting a real provider counts as completing first-run setup.
+  const setProvider = (id: ProviderId) => patch({ activeProvider: id, onboarded: true });
+
+  const setThreshold = (which: 'humanMax' | 'aiMin', value: number) => {
+    let { humanMax, aiMin } = settings.thresholds;
+    if (which === 'humanMax') humanMax = Math.min(value, aiMin - MIN_UNCERTAIN_BAND);
+    else aiMin = Math.max(value, humanMax + MIN_UNCERTAIN_BAND);
+    return patch({ thresholds: { humanMax, aiMin } });
+  };
+
+  const onClearCache = async () => {
+    await clearCache();
+    setCacheEntries(0);
+  };
 
   const setProviderField = (id: ProviderId, field: 'model' | 'baseUrl', value: string) =>
     patch({
@@ -52,6 +71,7 @@ export function App() {
     await setSecret('anthropic', keyInput.trim(), settings.persistSecrets);
     setConfigured(true);
     setKeyInput('');
+    await patch({ onboarded: true });
   };
 
   const clearKey = async () => {
@@ -188,6 +208,93 @@ export function App() {
           <pre className="snippet">{ollamaOriginsSnippet()}</pre>
         </details>
         <TestButton state={test.ollama} onClick={() => testConnection('ollama')} />
+      </section>
+
+      <section>
+        <h2>Thresholds</h2>
+        <p className="hint">
+          Where the score becomes "likely human" or "likely AI". The Uncertain band in the middle
+          can't be removed.
+        </p>
+        <label htmlFor="th-human">
+          Likely human below: {Math.round(settings.thresholds.humanMax * 100)}%
+        </label>
+        <input
+          id="th-human"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={settings.thresholds.humanMax}
+          onChange={(e) => setThreshold('humanMax', Number(e.target.value))}
+        />
+        <label htmlFor="th-ai">
+          Likely AI above: {Math.round(settings.thresholds.aiMin * 100)}%
+        </label>
+        <input
+          id="th-ai"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={settings.thresholds.aiMin}
+          onChange={(e) => setThreshold('aiMin', Number(e.target.value))}
+        />
+        <p className="hint">
+          Uncertain band:{' '}
+          {Math.round((settings.thresholds.aiMin - settings.thresholds.humanMax) * 100)}% wide.
+        </p>
+      </section>
+
+      <section>
+        <h2>Appearance</h2>
+        <label htmlFor="hl-style">Highlight style</label>
+        <select
+          id="hl-style"
+          value={settings.appearance.highlightStyle}
+          onChange={(e) =>
+            patch({
+              appearance: { ...settings.appearance, highlightStyle: e.target.value as HighlightStyle },
+            })
+          }
+        >
+          {HIGHLIGHT_STYLES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={settings.appearance.highContrast}
+            onChange={(e) =>
+              patch({ appearance: { ...settings.appearance, highContrast: e.target.checked } })
+            }
+          />
+          High-contrast highlights
+        </label>
+        <p className="hint">Dark mode and reduced-motion follow your system settings.</p>
+      </section>
+
+      <section>
+        <h2>Privacy &amp; data</h2>
+        <p className="hint">
+          Cached results live only in this browser and never contain your key. {' '}
+          {cacheEntries !== null && `${cacheEntries} cached.`}
+        </p>
+        <button onClick={onClearCache}>Clear cache</button>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={settings.diagnosticsEnabled}
+            onChange={(e) => patch({ diagnosticsEnabled: e.target.checked })}
+          />
+          Keep a local diagnostics log (provider, latency, tokens, errors)
+        </label>
+        <p className="hint">
+          Diagnostics stay on this device and never include page content or keys.
+        </p>
       </section>
 
       <p className="caveat">

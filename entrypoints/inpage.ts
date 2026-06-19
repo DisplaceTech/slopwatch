@@ -2,6 +2,7 @@ import { defineUnlistedScript } from 'wxt/utils/define-unlisted-script';
 import { onContentMessage } from '@/lib/messaging';
 import { extractContent } from '@/lib/extraction';
 import type { AnalysisResult } from '@/lib/types';
+import type { Appearance } from '@/lib/storage/settings';
 
 /**
  * On-page agent: extraction + the Shadow-DOM annotation layer (Story 5).
@@ -36,7 +37,7 @@ export default defineUnlistedScript(() => {
         return { ok: true, content: result.content };
       }
       case 'annotate': {
-        renderHighlights(state, msg.result);
+        renderHighlights(state, msg.result, msg.appearance);
         return { ok: true };
       }
       case 'clearAnnotations': {
@@ -92,9 +93,15 @@ function teardown(state: SlopwatchState): void {
   state.layer = null;
 }
 
-function renderHighlights(state: SlopwatchState, result: AnalysisResult): void {
+function renderHighlights(
+  state: SlopwatchState,
+  result: AnalysisResult,
+  appearance?: Appearance,
+): void {
   teardown(state);
   if (result.segments.length === 0) return;
+  const hlStyle = appearance?.highlightStyle ?? 'background';
+  const highContrast = appearance?.highContrast ?? false;
 
   const host = document.createElement('div');
   host.id = HOST_ID;
@@ -118,10 +125,19 @@ function renderHighlights(state: SlopwatchState, result: AnalysisResult): void {
     const pct = Math.round(seg.aiLikelihood * 100);
     const box = document.createElement('div');
     box.className = 'box';
-    // Intensity encodes confidence; paired with text/shape, not color alone.
-    const alpha = 0.12 + seg.aiLikelihood * 0.3;
-    box.style.background = `rgba(107, 78, 160, ${alpha.toFixed(3)})`;
-    box.style.outline = '2px solid rgba(107, 78, 160, 0.55)';
+    // Intensity encodes confidence; paired with text/shape, never color alone.
+    const alpha = (highContrast ? 0.25 : 0.12) + seg.aiLikelihood * (highContrast ? 0.45 : 0.3);
+    const accent = highContrast ? '90, 62, 156' : '107, 78, 160';
+    const outlineWidth = highContrast ? 3 : 2;
+    if (hlStyle === 'background') {
+      box.style.background = `rgba(${accent}, ${alpha.toFixed(3)})`;
+      box.style.outline = `${outlineWidth}px solid rgba(${accent}, 0.55)`;
+    } else if (hlStyle === 'underline') {
+      box.style.borderBottom = `${outlineWidth + 1}px solid rgba(${accent}, 0.85)`;
+    } else {
+      // 'box'
+      box.style.outline = `${outlineWidth}px solid rgba(${accent}, 0.85)`;
+    }
     box.setAttribute('role', 'note');
     box.setAttribute('aria-label', `Likely AI-generated: ${pct} percent. ${seg.rationale}`);
 

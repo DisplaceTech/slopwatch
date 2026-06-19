@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import { browser } from 'wxt/browser';
 import { sendToBackground, type RunContext, type TabStatus } from '@/lib/messaging';
 import type { AnalysisResult, ProviderId } from '@/lib/types';
@@ -29,9 +29,11 @@ const CAVEAT =
 export function App() {
   const [view, setView] = useState<View>({ phase: 'loading' });
   const [tabId, setTabId] = useState<number | undefined>();
+  const [onboarded, setOnboarded] = useState(true);
 
   useEffect(() => {
     void (async () => {
+      void getSettings().then((s) => setOnboarded(s.onboarded));
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (tab?.id === undefined) {
         setView({ phase: 'idle', context: { provider: 'mock', model: '', ranLocally: false } });
@@ -43,7 +45,12 @@ export function App() {
     })();
   }, []);
 
-  const run = useCallback(async () => {
+  const openOptions = (e: MouseEvent) => {
+    e.preventDefault();
+    void browser.runtime.openOptionsPage();
+  };
+
+  const run = useCallback(async (force: boolean) => {
     if (tabId === undefined) return;
     const ctx = contextOf(view);
     // Request the provider's host permission from this user gesture (AD-3).
@@ -65,7 +72,7 @@ export function App() {
       }
     }
     setView((v) => ({ phase: 'analyzing', context: contextOf(v) }));
-    const outcome = await sendToBackground({ channel: 'bg', type: 'analyze', tabId, force: true });
+    const outcome = await sendToBackground({ channel: 'bg', type: 'analyze', tabId, force });
     setView((v) => {
       const context = contextOf(v);
       if (outcome.status === 'results') {
@@ -82,13 +89,19 @@ export function App() {
         <h1>Slopwatch</h1>
         <PrivacyIndicator context={contextOf(view)} />
       </header>
+      {!onboarded && (
+        <p className="firstrun">
+          New here? <a href="#" onClick={openOptions}>Pick a provider and add a key →</a>{' '}
+          Or try the offline Mock provider right now.
+        </p>
+      )}
       <Body view={view} onRun={run} />
       <p className="caveat">{CAVEAT}</p>
     </main>
   );
 }
 
-function Body({ view, onRun }: { view: View; onRun: () => void }) {
+function Body({ view, onRun }: { view: View; onRun: (force: boolean) => void }) {
   switch (view.phase) {
     case 'loading':
       return <p className="status" role="status">Loading…</p>;
@@ -96,7 +109,7 @@ function Body({ view, onRun }: { view: View; onRun: () => void }) {
       return (
         <div>
           <p className="lead">Check whether the text on this page looks AI-generated.</p>
-          <button className="primary" onClick={onRun}>
+          <button className="primary" onClick={() => onRun(false)}>
             Run analysis on this page
           </button>
         </div>
@@ -114,7 +127,7 @@ function Body({ view, onRun }: { view: View; onRun: () => void }) {
         <div>
           <p className="status">Couldn't find primary article content on this page.</p>
           <p className="hint">App shells, pure media, and login walls don't have extractable text.</p>
-          <button className="primary" onClick={onRun}>Try again</button>
+          <button className="primary" onClick={() => onRun(true)}>Try again</button>
         </div>
       );
     case 'error': {
@@ -123,16 +136,16 @@ function Body({ view, onRun }: { view: View; onRun: () => void }) {
         <div className="error" role="alert">
           <p className="status">{view.error.message || r.message}</p>
           <p className="hint">{r.fix}</p>
-          <button className="primary" onClick={onRun}>Retry</button>
+          <button className="primary" onClick={() => onRun(true)}>Retry</button>
         </div>
       );
     }
     case 'results':
-      return <Results result={view.result} cached={view.cached} onRerun={onRun} />;
+      return <Results result={view.result} cached={view.cached} onRerun={() => onRun(true)} />;
   }
 }
 
-function Results({
+export function Results({
   result,
   cached,
   onRerun,
@@ -153,15 +166,20 @@ function Results({
         <div className={`label label-${result.label}`}>{label}</div>
       </div>
       <Gauge overall={result.overall} />
-      {cached && <p className="hint">Showing a saved result.</p>}
+      {cached && <p className="hint">Showing a saved result from {formatTime(result.createdAt)}.</p>}
       {result.meta.truncated && (
         <p className="hint">
-          Analyzed ~{Math.round(result.meta.sampledFraction * 100)}% of a long page.
+          Analyzed ~{Math.round(result.meta.sampledFraction * 100)}% of a long page (head, middle,
+          end).
         </p>
       )}
       <section className="reasoning">
         <h2>Why it looks this way</h2>
         <p>{result.reasoning}</p>
+        <p className="fp-note">
+          False positives are real — formal, template-following, or non-native-English writing can
+          read as AI. Don't use this to accuse anyone.
+        </p>
       </section>
       {result.segments.length > 0 && (
         <section className="segments">
@@ -179,9 +197,29 @@ function Results({
           </ul>
         </section>
       )}
+      <p className="meta">{formatMeta(result)}</p>
       <button className="secondary" onClick={onRerun}>Re-run</button>
     </div>
   );
+}
+
+function formatMeta(result: AnalysisResult): string {
+  const parts = [PROVIDER_NAMES[result.provider], result.model, `${result.meta.latencyMs} ms`];
+  const u = result.usage;
+  if (u?.inputTokens !== undefined || u?.outputTokens !== undefined) {
+    parts.push(`${(u.inputTokens ?? 0) + (u.outputTokens ?? 0)} tokens`);
+  }
+  if (u?.estCostUsd !== undefined) parts.push(`~$${u.estCostUsd.toFixed(4)}`);
+  if (result.meta.schemaRepaired) parts.push('repaired');
+  return parts.filter(Boolean).join(' · ');
+}
+
+function formatTime(epochMs: number): string {
+  try {
+    return new Date(epochMs).toLocaleString();
+  } catch {
+    return 'earlier';
+  }
 }
 
 function Gauge({ overall }: { overall: number }) {
