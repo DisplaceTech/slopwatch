@@ -8,6 +8,25 @@ All notable changes to Slopwatch are documented here. Format follows
 
 ### Added
 
+- **M2 — Real providers (Anthropic + Ollama).** Grind on real pages with your own
+  model:
+  - `AnthropicProvider` — Messages API with the required browser headers
+    (`x-api-key`, `anthropic-version`, `anthropic-dangerous-direct-browser-access`),
+    JSON output + one repair, usage/cost estimation.
+  - `OllamaProvider` — native `/api/chat` with a `format` JSON schema, `/api/tags`
+    model listing, on-device (`ranLocally`), and CORS detection with an
+    `OLLAMA_ORIGINS` copy-paste remediation.
+  - Shared HTTP layer: 30s timeout, bounded exponential backoff with jitter for
+    429/5xx/network/timeout (never 4xx), typed-error normalization.
+  - Runtime optional host-permission requests per provider, from a user gesture
+    in the popup and options (AD-3) — still no `<all_urls>`.
+  - Options page: provider selection; Anthropic key entry (write-only, masked
+    "configured" state) with session-default storage and an opt-in persistence
+    warning; Ollama base URL + model picker (from `/api/tags`); per-provider
+    Test connection.
+  - Tests: Anthropic/Ollama adapters against stubbed responses (request-shape,
+    error mapping, retry, repair, CORS).
+
 - **M1 — Vertical slice (MockProvider).** The full click→extract→analyze→annotate
   experience, end-to-end against a deterministic offline mock:
   - Readability-based extraction with an indexed segmenter and stable content

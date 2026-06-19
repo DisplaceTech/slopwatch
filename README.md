@@ -13,7 +13,9 @@ highlights. Bring your own model. Yell at the results. Move on with your day.
 
 <sub>Firefox-first · Chromium second · runs on nothing until you click it</sub>
 
-<!-- Status badges go here once the repo is public. -->
+[![CI](https://github.com/DisplaceTech/slopwatch/actions/workflows/ci.yml/badge.svg)](https://github.com/DisplaceTech/slopwatch/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Built with WXT](https://img.shields.io/badge/built%20with-WXT-67217a.svg)](https://wxt.dev)
 
 </div>
 

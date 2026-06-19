@@ -5,6 +5,8 @@ import type { AnalysisResult, ProviderId } from '@/lib/types';
 import { labelText } from '@/lib/analysis/mapper';
 import { remediationFor } from './remediation';
 import type { SerializedProviderError } from '@/lib/errors';
+import { getSettings } from '@/lib/storage';
+import { requestProviderPermission } from '@/lib/permissions';
 
 type View =
   | { phase: 'loading' }
@@ -43,6 +45,25 @@ export function App() {
 
   const run = useCallback(async () => {
     if (tabId === undefined) return;
+    const ctx = contextOf(view);
+    // Request the provider's host permission from this user gesture (AD-3).
+    if (ctx.provider !== 'mock') {
+      const settings = await getSettings();
+      const granted = await requestProviderPermission(ctx.provider, settings);
+      if (!granted) {
+        setView({
+          phase: 'error',
+          context: ctx,
+          error: {
+            __providerError: true,
+            kind: 'auth',
+            message: 'Permission to reach the provider was denied.',
+            retryable: false,
+          },
+        });
+        return;
+      }
+    }
     setView((v) => ({ phase: 'analyzing', context: contextOf(v) }));
     const outcome = await sendToBackground({ channel: 'bg', type: 'analyze', tabId, force: true });
     setView((v) => {
@@ -100,7 +121,7 @@ function Body({ view, onRun }: { view: View; onRun: () => void }) {
       const r = remediationFor(view.error.kind, PROVIDER_NAMES[view.context.provider]);
       return (
         <div className="error" role="alert">
-          <p className="status">{r.message}</p>
+          <p className="status">{view.error.message || r.message}</p>
           <p className="hint">{r.fix}</p>
           <button className="primary" onClick={onRun}>Retry</button>
         </div>
