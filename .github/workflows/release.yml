@@ -60,15 +60,28 @@ jobs:
             .output/*.zip
           generate_release_notes: true
 
+      # The `secrets` context isn't available in `if:`, so probe for credentials
+      # here and gate the submission steps on these outputs instead.
+      - name: Detect store credentials
+        id: creds
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          [ -n "$AMO_JWT_ISSUER" ] && [ -n "$AMO_JWT_SECRET" ] && echo "amo=true" >> "$GITHUB_OUTPUT" || echo "amo=false" >> "$GITHUB_OUTPUT"
+          [ -n "$CWS_CLIENT_ID" ] && [ -n "$CWS_REFRESH_TOKEN" ] && echo "cws=true" >> "$GITHUB_OUTPUT" || echo "cws=false" >> "$GITHUB_OUTPUT"
+
       - name: Submit to AMO (Firefox)
-        if: ${{ secrets.AMO_JWT_ISSUER != '' && secrets.AMO_JWT_SECRET != '' }}
+        if: steps.creds.outputs.amo == 'true'
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: pnpm dlx wxt submit --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip
 
       - name: Submit to Chrome Web Store (optional)
-        if: ${{ secrets.CWS_CLIENT_ID != '' && secrets.CWS_REFRESH_TOKEN != '' }}
+        if: steps.creds.outputs.cws == 'true'
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
           CHROME_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
@@ -77,5 +90,5 @@ jobs:
         run: pnpm dlx wxt submit --chrome-zip .output/*-chrome.zip
 
       - name: Submission skipped notice
-        if: ${{ secrets.AMO_JWT_ISSUER == '' }}
+        if: steps.creds.outputs.amo == 'false'
         run: echo "::notice::AMO credentials not set — built and attached artifacts to the Release, but did not submit to a store."
