@@ -2,6 +2,7 @@ import type { AnalysisProvider, AnalysisResult } from '../types';
 import type { Settings } from '../storage/settings';
 import { serializeProviderError } from '../errors';
 import { applyBudget } from '../analysis/budgeter';
+import type { DiagnosticEntry } from '../diagnostics';
 import type { AnalysisOutcome, ExtractOutcome, RunContext, TabStatus } from '../messaging';
 
 /**
@@ -21,6 +22,8 @@ export interface OrchestratorDeps {
   /** Result cache, keyed by url + contentHash. */
   cacheGet(url: string, contentHash: string): Promise<AnalysisResult | undefined>;
   cacheSet(url: string, contentHash: string, result: AnalysisResult): Promise<void>;
+  /** Optional: record a run to the local diagnostics buffer (no content/keys). */
+  recordRun?(entry: DiagnosticEntry): Promise<void>;
 }
 
 export class Orchestrator {
@@ -109,11 +112,30 @@ export class Orchestrator {
           cached: false,
         });
         await this.deps.setBadge(tabId, String(Math.round(result.overall * 100)));
+        await this.deps.recordRun?.({
+          at: result.createdAt,
+          provider: result.provider,
+          model: result.model,
+          ranLocally: result.ranLocally,
+          latencyMs: result.meta.latencyMs,
+          inputTokens: result.usage?.inputTokens,
+          outputTokens: result.usage?.outputTokens,
+          truncated: result.meta.truncated,
+          sampledFraction: result.meta.sampledFraction,
+          schemaRepaired: result.meta.schemaRepaired,
+        });
         return { status: 'results', result, cached: false };
       } catch (err) {
         const error = serializeProviderError(err);
         this.statusByTab.set(tabId, { phase: 'error', context, error });
         await this.deps.setBadge(tabId, '!');
+        await this.deps.recordRun?.({
+          at: Date.now(),
+          provider: context.provider,
+          model: context.model,
+          ranLocally: context.ranLocally,
+          errorKind: error.kind,
+        });
         return { status: 'error', error };
       }
     } finally {

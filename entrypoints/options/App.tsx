@@ -15,6 +15,12 @@ import { sendToBackground } from '@/lib/messaging';
 import { requestProviderPermission } from '@/lib/permissions';
 import { ollamaOriginsSnippet } from '@/lib/providers';
 import { clearCache, cacheStats } from '@/lib/cache';
+import {
+  listDiagnostics,
+  clearDiagnostics,
+  exportDiagnostics,
+  type DiagnosticEntry,
+} from '@/lib/diagnostics';
 import type { ProviderId } from '@/lib/types';
 
 type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; detail?: string };
@@ -33,12 +39,14 @@ export function App() {
   const [test, setTest] = useState<Record<string, TestState>>({});
   const [ollamaModels, setOllamaModels] = useState<string[] | null>(null);
   const [cacheEntries, setCacheEntries] = useState<number | null>(null);
+  const [diag, setDiag] = useState<DiagnosticEntry[]>([]);
 
   useEffect(() => {
     void (async () => {
       setSettings(await getSettings());
       setConfigured(await hasSecret('anthropic'));
       setCacheEntries((await cacheStats()).entries);
+      setDiag(await listDiagnostics());
     })();
   }, []);
 
@@ -59,6 +67,19 @@ export function App() {
   const onClearCache = async () => {
     await clearCache();
     setCacheEntries(0);
+  };
+
+  const onClearDiagnostics = async () => {
+    await clearDiagnostics();
+    setDiag([]);
+  };
+
+  const onCopyDiagnostics = async () => {
+    try {
+      await navigator.clipboard.writeText(exportDiagnostics(diag));
+    } catch {
+      // Clipboard may be unavailable; ignore.
+    }
   };
 
   const setProviderField = (id: ProviderId, field: 'model' | 'baseUrl', value: string) =>
@@ -295,6 +316,23 @@ export function App() {
         <p className="hint">
           Diagnostics stay on this device and never include page content or keys.
         </p>
+        {settings.diagnosticsEnabled && (
+          <details>
+            <summary>Recent runs ({diag.length})</summary>
+            <div className="row">
+              <button onClick={onCopyDiagnostics}>Copy JSON</button>
+              <button onClick={onClearDiagnostics}>Clear log</button>
+            </div>
+            <ul className="diag">
+              {diag.map((d, i) => (
+                <li key={i}>
+                  {new Date(d.at).toLocaleString()} · {d.provider} · {d.model} ·{' '}
+                  {d.errorKind ? `error: ${d.errorKind}` : `${d.latencyMs ?? '?'} ms`}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </section>
 
       <p className="caveat">

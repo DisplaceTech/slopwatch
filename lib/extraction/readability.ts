@@ -2,6 +2,9 @@ import { Readability, isProbablyReaderable } from '@mozilla/readability';
 import type { ExtractedContent } from '../types';
 import { segmentCandidates } from './segmenter';
 import { computeContentHash } from './hash';
+import { findFeedExtractor } from './feeds';
+
+export type ExtractionStrategy = 'feed' | 'readability' | 'generic';
 
 /**
  * Readability-based extraction (Story 3). Gates on `isProbablyReaderable`, then
@@ -70,30 +73,58 @@ function isExcluded(el: HTMLElement): boolean {
   return el.closest(EXCLUDE_SELECTOR) !== null;
 }
 
-export async function extractContent(
-  doc: Document,
-  url: string,
-): Promise<ExtractionResult | null> {
-  if (!isLikelyArticle(doc)) return null;
-
-  let title = doc.title || '';
-  let siteName: string | undefined;
-  try {
-    const clone = doc.cloneNode(true) as Document;
-    const article = new Readability(clone).parse();
-    if (article?.title) title = article.title;
-    if (article?.siteName) siteName = article.siteName;
-  } catch {
-    // Fall back to document.title; extraction can still proceed from live nodes.
-  }
-
-  const root = findContentRoot(doc);
-  const candidates: { payload: HTMLElement; text: string }[] = [];
+/** Collect leaf block elements under a root, excluding chrome and wrappers. */
+export function collectBlocks(root: ParentNode): { payload: HTMLElement; text: string }[] {
+  const out: { payload: HTMLElement; text: string }[] = [];
   for (const el of root.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)) {
     if (isExcluded(el)) continue;
     // Skip a block that merely wraps other counted blocks (avoid double-counting).
     if (el.querySelector(BLOCK_SELECTOR)) continue;
-    candidates.push({ payload: el, text: el.textContent ?? '' });
+    out.push({ payload: el, text: el.textContent ?? '' });
+  }
+  return out;
+}
+
+/** Generic visible-text fallback for layouts Readability rejects and no feed matches. */
+export function genericVisibleTextCandidates(doc: Document): { payload: HTMLElement; text: string }[] {
+  return collectBlocks(doc.body ?? doc.documentElement);
+}
+
+/**
+ * Extract primary content, choosing a strategy:
+ *   1. a named feed extractor if the URL matches the allowlist,
+ *   2. else Readability (articles),
+ *   3. else the generic visible-text fallback.
+ * Returns null only when no strategy yields any qualifying segment.
+ */
+export async function extractContent(
+  doc: Document,
+  url: string,
+): Promise<(ExtractionResult & { strategy: ExtractionStrategy }) | null> {
+  let strategy: ExtractionStrategy;
+  let candidates: { payload: HTMLElement; text: string }[];
+  let title = doc.title || '';
+  let siteName: string | undefined;
+
+  const feed = findFeedExtractor(url);
+  if (feed) {
+    strategy = 'feed';
+    candidates = feed.collect(doc).map((el) => ({ payload: el, text: el.textContent ?? '' }));
+    title = feed.title(doc) ?? title;
+  } else if (isLikelyArticle(doc)) {
+    strategy = 'readability';
+    try {
+      const clone = doc.cloneNode(true) as Document;
+      const article = new Readability(clone).parse();
+      if (article?.title) title = article.title;
+      if (article?.siteName) siteName = article.siteName;
+    } catch {
+      // Fall back to document.title; extraction can still proceed from live nodes.
+    }
+    candidates = collectBlocks(findContentRoot(doc));
+  } else {
+    strategy = 'generic';
+    candidates = genericVisibleTextCandidates(doc);
   }
 
   const { segments, kept } = segmentCandidates(candidates);
@@ -101,6 +132,7 @@ export async function extractContent(
 
   const contentHash = await computeContentHash(url, segments.map((s) => s.text));
   return {
+    strategy,
     content: {
       url,
       title: title.trim() || 'Untitled',

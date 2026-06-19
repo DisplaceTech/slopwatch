@@ -8,6 +8,20 @@ All notable changes to Slopwatch are documented here. Format follows
 
 ### Added
 
+- **M4 — Feeds & hardening.**
+  - Feed-extractor framework with a named allowlist (Hacker News, Reddit) that
+    pulls the primary post + comment bodies as live elements, plus a generic
+    visible-text fallback for layouts Readability rejects. Extraction now reports
+    its strategy (feed / readability / generic).
+  - Prompt-injection hardening proven end-to-end against an adversarial fixture:
+    hostile page text is confined to the escaped content region and can't close
+    the delimiters or reach the instruction region.
+  - Optional, off-by-default local diagnostics ring buffer (last 50 runs:
+    provider, latency, tokens, error class — never content or keys), recorded by
+    the orchestrator and viewable/exportable from options.
+  - Checked-in page fixtures (hacker-news, reddit, adversarial) and tests for
+    feed dispatch, generic fallback, injection, and diagnostics — 110 total.
+
 - **M3 — Robustness & UX polish.**
   - Token/char budgeter: over-budget pages are head/middle/tail sampled with an
     "analyzed ~N%" notice, keeping original segment indices so highlights still map.

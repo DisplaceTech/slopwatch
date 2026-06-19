@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head><title>Some post : r/example</title></head>
+  <body>
+    <nav>r/example · home · popular</nav>
+    <shreddit-post>
+      <h1 slot="title">A reddit post title that is fairly descriptive of the content</h1>
+      <div slot="text-body">
+        The body of the post, which is several sentences long and contains the actual substance the
+        reader cares about, well beyond the minimum segment length threshold the extractor uses.
+      </div>
+    </shreddit-post>
+    <div data-testid="comment">
+      A top-level comment that is sufficiently long to count as a content segment, with a couple of
+      sentences and some specific detail that reads like a real person wrote it.
+    </div>
+    <div data-testid="comment">
+      Another comment, also comfortably long enough to be counted as a content segment block by the
+      extractor, replying with a different point of view.
+    </div>
+    <footer>about · careers · press · advertise</footer>
+  </body>
+</html>

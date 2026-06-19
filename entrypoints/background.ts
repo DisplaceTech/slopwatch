@@ -6,6 +6,7 @@ import { createProvider } from '@/lib/providers';
 import { serializeProviderError } from '@/lib/errors';
 import { Orchestrator } from '@/lib/orchestrator';
 import { getCached, setCached } from '@/lib/cache';
+import { recordDiagnostic } from '@/lib/diagnostics';
 import type { AnalysisResult } from '@/lib/types';
 
 /**
@@ -41,6 +42,7 @@ export default defineBackground(() => {
     setBadge,
     cacheGet: getCached,
     cacheSet: setCached,
+    recordRun: recordDiagnostic,
   });
 
   browser.tabs.onRemoved.addListener((tabId) => orchestrator.forgetTab(tabId));
