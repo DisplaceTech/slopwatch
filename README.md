@@ -17,6 +17,8 @@ highlights. Bring your own model. Yell at the results. Move on with your day.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Built with WXT](https://img.shields.io/badge/built%20with-WXT-67217a.svg)](https://wxt.dev)
 
+📖 **Docs:** [slopwatch.displace.tech](https://slopwatch.displace.tech)
+
 </div>
 
 ---

@@ -31,6 +31,13 @@ jobs:
 
       - run: pnpm typecheck
 
+      - name: Assert no remotely-hosted code (MV3 / store policy)
+        run: |
+          if grep -rEn "import\([\"']https?://" entrypoints lib; then
+            echo "::error::Found a dynamic import of a remote URL — forbidden by MV3 and store policy."
+            exit 1
+          fi
+
       - run: pnpm test
 
       - run: pnpm build

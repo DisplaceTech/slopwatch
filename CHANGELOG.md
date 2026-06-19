@@ -8,6 +8,17 @@ All notable changes to Slopwatch are documented here. Format follows
 
 ### Added
 
+- **M5 — Release engineering & docs.**
+  - `release.yml`: tag-driven (`v*.*.*`) release that asserts the tag matches
+    `package.json`, runs the gates, builds the Firefox package + AMO sources
+    archive and the Chromium package, attaches them to a GitHub Release, and
+    submits to AMO/CWS when credentials are present (skipped, not failed, when
+    absent).
+  - CI asserts no remotely-hosted code (MV3 / store policy).
+  - Store-listing copy with the honest data-collection disclosure (`store/`).
+  - mdbook documentation site (`docs-site/`) deployed to GitHub Pages at
+    `slopwatch.displace.tech` via `docs.yml`.
+
 - **M4 — Feeds & hardening.**
   - Feed-extractor framework with a named allowlist (Hacker News, Reddit) that
     pulls the primary post + comment bodies as live elements, plus a generic

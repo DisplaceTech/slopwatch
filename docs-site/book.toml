@@ -1,0 +1,16 @@
+[book]
+title = "Slopwatch"
+authors = ["Displace Technologies, LLC"]
+description = "On-demand, pluggable browser extension that estimates how likely page content is AI-generated."
+src = "src"
+language = "en"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/DisplaceTech/slopwatch"
+edit-url-template = "https://github.com/DisplaceTech/slopwatch/edit/main/docs-site/{path}"
+
+[output.html.fold]
+enable = true
+level = 1

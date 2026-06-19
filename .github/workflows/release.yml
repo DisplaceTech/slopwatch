@@ -1,0 +1,81 @@
+name: Release
+
+# Cut a release by pushing a SemVer tag that matches package.json, e.g. v0.2.0.
+# Builds the Firefox package + AMO sources archive and the Chromium package,
+# attaches them to a GitHub Release, and — when AMO/CWS credentials are present
+# as secrets — submits to the stores. Submission steps are skipped (not failed)
+# when secrets are absent, so tagging always produces installable artifacts.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Node version
+        id: nvm
+        run: echo "version=$(cat .nvmrc)" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.nvm.outputs.version }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Assert tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "tag=$TAG package.json=$PKG"
+          [ "$TAG" = "$PKG" ] || { echo "::error::tag ($TAG) != package.json version ($PKG)"; exit 1; }
+
+      # Quality gates must pass before we publish anything.
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm build:firefox
+
+      - name: Package Firefox (extension + AMO sources archive)
+        run: pnpm zip:firefox
+
+      - name: Package Chromium
+        run: pnpm zip
+
+      - name: Attach packages to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            .output/*.zip
+          generate_release_notes: true
+
+      - name: Submit to AMO (Firefox)
+        if: ${{ secrets.AMO_JWT_ISSUER != '' && secrets.AMO_JWT_SECRET != '' }}
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: pnpm dlx wxt submit --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip
+
+      - name: Submit to Chrome Web Store (optional)
+        if: ${{ secrets.CWS_CLIENT_ID != '' && secrets.CWS_REFRESH_TOKEN != '' }}
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: pnpm dlx wxt submit --chrome-zip .output/*-chrome.zip
+
+      - name: Submission skipped notice
+        if: ${{ secrets.AMO_JWT_ISSUER == '' }}
+        run: echo "::notice::AMO credentials not set — built and attached artifacts to the Release, but did not submit to a store."
