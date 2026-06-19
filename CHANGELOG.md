@@ -6,6 +6,20 @@ All notable changes to Slopwatch are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Mock provider could run in a real install, and a stale Mock result could
+  be served after switching providers.** Two bugs that together produced fake
+  results:
+  - The result cache wasn't scoped by provider/model, so a result cached under
+    the Mock provider was served back once a real provider was active. The cache
+    key now includes provider + model.
+  - The Mock provider is now **development-only** — it's hidden in options and
+    refuses to run in a production build. A fresh install defaults to Anthropic
+    and, when no provider is configured, the popup shows a **"set up a provider"**
+    prompt instead of silently analyzing. Saving an Anthropic key now also makes
+    Anthropic the active provider.
+
 ### Added
 
 - **M5 — Release engineering & docs.**

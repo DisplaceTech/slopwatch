@@ -64,7 +64,10 @@ export type Appearance = Settings['appearance'];
 
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
-  activeProvider: 'mock',
+  // A real provider by default. The Mock provider is dev-only (see createProvider)
+  // — a fresh install is "not configured" and the UI prompts setup rather than
+  // silently producing fake results.
+  activeProvider: 'anthropic',
   providers: {
     anthropic: { model: 'claude-haiku-4-5' },
     openai_compat: { model: 'gpt-4o-mini', baseUrl: 'https://api.openai.com/v1' },

@@ -3,7 +3,16 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['node_modules/**', '.output/**', '.wxt/**', 'coverage/**', 'test-results/**'],
+    ignores: [
+      'node_modules/**',
+      '.output/**',
+      'out/**',
+      '.wxt/**',
+      'coverage/**',
+      'test-results/**',
+      'playwright-report/**',
+      'docs-site/book/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -15,6 +15,15 @@ export async function createProvider(settings: Settings): Promise<AnalysisProvid
   const cfg = settings.providers[id];
   switch (id) {
     case 'mock':
+      // The Mock provider is a development/test aid only. In a production build it
+      // must never run — a missing real provider is reported as "not configured".
+      if (!import.meta.env.DEV) {
+        throw new ProviderError(
+          'unknown',
+          'No analysis provider is configured. Open Settings and add an Anthropic key or point at a local Ollama model.',
+          { retryable: false },
+        );
+      }
       return new MockProvider(cfg.model, settings.thresholds);
     case 'anthropic': {
       const key = await getSecret('anthropic');
@@ -31,6 +40,7 @@ export async function createProvider(settings: Settings): Promise<AnalysisProvid
   }
 }
 
+export { isProviderConfigured } from './readiness';
 export { MockProvider } from './mock';
 export { AnthropicProvider, estimateCost } from './anthropic';
 export { OllamaProvider, ollamaOriginsSnippet } from './ollama';

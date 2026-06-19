@@ -36,16 +36,18 @@ async function extensionId(): Promise<string> {
   return new URL(sw.url()).host;
 }
 
-test('popup renders the idle UI with provider indicator and caveat', async () => {
+test('popup prompts setup on a fresh install — never silently runs', async () => {
   const id = await extensionId();
   const page = await context.newPage();
   await page.goto(`chrome-extension://${id}/popup.html`);
 
   await expect(page.getByRole('heading', { name: 'Slopwatch' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /run analysis/i })).toBeVisible();
-  // Persistent cloud-vs-local indicator is always present.
-  await expect(page.locator('.privacy')).toBeVisible();
-  // The permanent responsible-use caveat is shown.
+  // A fresh production install has no configured provider: it must prompt setup,
+  // not show a Run button (the Mock provider never runs in a real build).
+  await expect(page.getByRole('button', { name: /open settings/i })).toBeVisible();
+  await expect(page.getByText(/no analysis provider is set up/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /run analysis/i })).toHaveCount(0);
+  // The permanent responsible-use caveat is still shown.
   await expect(page.getByText(/probabilistic estimate from a language model/i)).toBeVisible();
 });
 

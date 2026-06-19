@@ -92,7 +92,9 @@ export function App() {
     await setSecret('anthropic', keyInput.trim(), settings.persistSecrets);
     setConfigured(true);
     setKeyInput('');
-    await patch({ onboarded: true });
+    // Configuring Anthropic should make it the active provider, so a run doesn't
+    // silently fall back to the Mock provider.
+    await patch({ activeProvider: 'anthropic', onboarded: true });
   };
 
   const clearKey = async () => {
@@ -133,7 +135,7 @@ export function App() {
 
       <fieldset>
         <legend>Active provider</legend>
-        {(['anthropic', 'ollama', 'mock'] as ProviderId[]).map((id) => (
+        {PROVIDER_OPTIONS.map((id) => (
           <label key={id} className="radio">
             <input
               type="radio"
@@ -358,5 +360,10 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: 'Anthropic (cloud)',
   ollama: 'Ollama (local)',
   openai_compat: 'OpenAI-compatible',
-  mock: 'Mock (offline demo)',
+  mock: 'Mock (dev only)',
 };
+
+// The Mock provider is only offered in development builds — never in production.
+const PROVIDER_OPTIONS: ProviderId[] = import.meta.env.DEV
+  ? ['anthropic', 'ollama', 'mock']
+  : ['anthropic', 'ollama'];

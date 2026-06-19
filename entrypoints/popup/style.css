@@ -60,6 +60,15 @@ body {
   color: var(--human);
 }
 
+.privacy.notset,
+.privacy.mock {
+  color: var(--ai);
+}
+
+.setup .lead {
+  font-weight: 600;
+}
+
 .lead,
 .status {
   font-size: 0.92rem;

@@ -6,6 +6,7 @@ import { labelText } from '@/lib/analysis/mapper';
 import { remediationFor } from './remediation';
 import type { SerializedProviderError } from '@/lib/errors';
 import { getSettings } from '@/lib/storage';
+import { isProviderConfigured } from '@/lib/providers';
 import { requestProviderPermission } from '@/lib/permissions';
 
 type View =
@@ -30,10 +31,14 @@ export function App() {
   const [view, setView] = useState<View>({ phase: 'loading' });
   const [tabId, setTabId] = useState<number | undefined>();
   const [onboarded, setOnboarded] = useState(true);
+  const [configured, setConfigured] = useState(true);
 
   useEffect(() => {
     void (async () => {
-      void getSettings().then((s) => setOnboarded(s.onboarded));
+      void getSettings().then(async (s) => {
+        setOnboarded(s.onboarded);
+        setConfigured(await isProviderConfigured(s));
+      });
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (tab?.id === undefined) {
         setView({ phase: 'idle', context: { provider: 'mock', model: '', ranLocally: false } });
@@ -87,17 +92,43 @@ export function App() {
     <main className="popup">
       <header className="head">
         <h1>Slopwatch</h1>
-        <PrivacyIndicator context={contextOf(view)} />
+        {configured ? (
+          <PrivacyIndicator context={contextOf(view)} />
+        ) : (
+          <span className="privacy notset" title="No provider configured">
+            ⚙️ Not set up
+          </span>
+        )}
       </header>
-      {!onboarded && (
-        <p className="firstrun">
-          New here? <a href="#" onClick={openOptions}>Pick a provider and add a key →</a>{' '}
-          Or try the offline Mock provider right now.
-        </p>
+      {!configured && view.phase !== 'results' ? (
+        <SetupNeeded onOpen={openOptions} />
+      ) : (
+        <>
+          {!onboarded && (
+            <p className="firstrun">
+              New here? <a href="#" onClick={openOptions}>Configure a provider →</a>
+            </p>
+          )}
+          <Body view={view} onRun={run} />
+        </>
       )}
-      <Body view={view} onRun={run} />
       <p className="caveat">{CAVEAT}</p>
     </main>
+  );
+}
+
+function SetupNeeded({ onOpen }: { onOpen: (e: MouseEvent) => void }) {
+  return (
+    <div className="setup">
+      <p className="lead">No analysis provider is set up yet.</p>
+      <p className="hint">
+        Add an Anthropic API key, or point Slopwatch at a local Ollama model, to start analyzing
+        pages. Slopwatch never analyzes anything until a real provider is configured.
+      </p>
+      <button className="primary" onClick={onOpen}>
+        Open Settings
+      </button>
+    </div>
   );
 }
 
@@ -236,6 +267,13 @@ function Gauge({ overall }: { overall: number }) {
 }
 
 function PrivacyIndicator({ context }: { context: RunContext }) {
+  if (context.provider === 'mock') {
+    return (
+      <span className="privacy mock" title="Offline demo provider — not real analysis">
+        🧪 Mock
+      </span>
+    );
+  }
   const where = context.ranLocally
     ? 'Runs on your device'
     : `Sent to ${PROVIDER_NAMES[context.provider]}`;

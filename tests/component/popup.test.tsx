@@ -4,6 +4,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import axe from 'axe-core';
 import { App, Results } from '@/entrypoints/popup/App';
+import { setSecret } from '@/lib/storage';
 import type { AnalysisResult } from '@/lib/types';
 
 afterEach(cleanup);
@@ -36,10 +37,20 @@ function aiResult(): AnalysisResult {
 }
 
 describe('popup', () => {
-  it('renders the idle UI with the run button and caveat', async () => {
+  it('prompts setup (no Run) when no provider is configured', async () => {
+    // Default provider is Anthropic with no key → not configured.
+    render(<App />);
+    expect(await screen.findByRole('button', { name: /open settings/i })).toBeInTheDocument();
+    expect(screen.getByText(/no analysis provider is set up/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /run analysis/i })).not.toBeInTheDocument();
+    // The permanent caveat is still shown.
+    expect(screen.getByText(/probabilistic estimate from a language model/i)).toBeInTheDocument();
+  });
+
+  it('shows the Run button once a provider is configured', async () => {
+    await setSecret('anthropic', 'sk-ant-test', false);
     render(<App />);
     expect(await screen.findByRole('button', { name: /run analysis/i })).toBeInTheDocument();
-    expect(screen.getByText(/probabilistic estimate from a language model/i)).toBeInTheDocument();
     expect(document.querySelector('.privacy')).toBeTruthy();
   });
 

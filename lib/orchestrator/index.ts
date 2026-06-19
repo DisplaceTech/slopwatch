@@ -1,4 +1,4 @@
-import type { AnalysisProvider, AnalysisResult } from '../types';
+import type { AnalysisProvider, AnalysisResult, ProviderId } from '../types';
 import type { Settings } from '../storage/settings';
 import { serializeProviderError } from '../errors';
 import { applyBudget } from '../analysis/budgeter';
@@ -19,9 +19,20 @@ export interface OrchestratorDeps {
   extract(tabId: number): Promise<ExtractOutcome>;
   annotate(tabId: number, result: AnalysisResult): Promise<void>;
   setBadge(tabId: number, text: string): Promise<void>;
-  /** Result cache, keyed by url + contentHash. */
-  cacheGet(url: string, contentHash: string): Promise<AnalysisResult | undefined>;
-  cacheSet(url: string, contentHash: string, result: AnalysisResult): Promise<void>;
+  /** Result cache, keyed by url + contentHash + provider + model. */
+  cacheGet(
+    url: string,
+    contentHash: string,
+    provider: ProviderId,
+    model: string,
+  ): Promise<AnalysisResult | undefined>;
+  cacheSet(
+    url: string,
+    contentHash: string,
+    provider: ProviderId,
+    model: string,
+    result: AnalysisResult,
+  ): Promise<void>;
   /** Optional: record a run to the local diagnostics buffer (no content/keys). */
   recordRun?(entry: DiagnosticEntry): Promise<void>;
 }
@@ -84,8 +95,15 @@ export class Orchestrator {
       const budgeted = applyBudget(extracted.content, settings.wordBudget);
 
       // Cache hit (unless this is a forced re-run): skip the provider entirely.
+      // Keyed by provider+model so a Mock result is never served once a real
+      // provider is active.
       if (!force) {
-        const cached = await this.deps.cacheGet(budgeted.url, budgeted.contentHash);
+        const cached = await this.deps.cacheGet(
+          budgeted.url,
+          budgeted.contentHash,
+          context.provider,
+          context.model,
+        );
         if (cached) {
           await this.deps.annotate(tabId, cached);
           this.statusByTab.set(tabId, {
@@ -103,7 +121,13 @@ export class Orchestrator {
       try {
         const provider = await this.deps.createProvider(settings);
         const result = await provider.analyze(budgeted, controller.signal);
-        await this.deps.cacheSet(budgeted.url, budgeted.contentHash, result);
+        await this.deps.cacheSet(
+          budgeted.url,
+          budgeted.contentHash,
+          result.provider,
+          result.model,
+          result,
+        );
         await this.deps.annotate(tabId, result);
         this.statusByTab.set(tabId, {
           phase: 'results',

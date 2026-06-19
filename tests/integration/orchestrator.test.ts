@@ -40,10 +40,10 @@ function makeDeps(overrides: Partial<OrchestratorDeps> = {}): {
     setBadge: async (_tabId, text) => {
       calls.badges.push(text);
     },
-    cacheGet: async (url, hash) => cache.get(`${url}\n${hash}`),
-    cacheSet: async (url, hash, result) => {
+    cacheGet: async (url, hash, provider, model) => cache.get(`${provider}|${model}|${url}|${hash}`),
+    cacheSet: async (url, hash, provider, model, result) => {
       calls.cacheSets++;
-      cache.set(`${url}\n${hash}`, result);
+      cache.set(`${provider}|${model}|${url}|${hash}`, result);
     },
     ...overrides,
   };
