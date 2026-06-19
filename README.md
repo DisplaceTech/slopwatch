@@ -30,11 +30,12 @@ Code using the build prompt.
 
 | File | What it is |
 |---|---|
-| [`docs/TDD.md`](./docs/TDD.md) | Full technical design: architecture, provider interface, NFRs, decisions, tickets |
-| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Milestones M0–M5 with Definitions of Done and advancement criteria |
-| [`docs/TESTING.md`](./docs/TESTING.md) | Test pyramid, fixtures, what we test vs. deliberately don't, CI gates |
-| [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) | Build, sign, and store-submission pipeline (Firefox-first) |
-| [`docs/USABILITY.md`](./docs/USABILITY.md) | Interaction states, result presentation, accessibility, responsible-use UX |
+| [`TDD.md`](./TDD.md) | Full technical design: architecture, provider interface, NFRs, decisions, tickets |
+| [`ROADMAP.md`](./ROADMAP.md) | Milestones M0–M5 with Definitions of Done and advancement criteria |
+| [`TESTING.md`](./TESTING.md) | Test pyramid, fixtures, what we test vs. deliberately don't, CI gates |
+| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Build, sign, and store-submission pipeline (Firefox-first) |
+| [`USABILITY.md`](./USABILITY.md) | Interaction states, result presentation, accessibility, responsible-use UX |
+| [`CLAUDE.md`](./CLAUDE.md) | Guidance for AI agents/humans: invariants, layout, commands, conventions |
 | [`BUILD_PROMPT.md`](./BUILD_PROMPT.md) | Paste-into-Claude-Code instructions to build the whole thing |
 
 ## Build it
