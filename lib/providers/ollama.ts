@@ -1,6 +1,5 @@
 import type { AnalysisProvider, AnalysisResult, AnalysisUsage, ExtractedContent } from '../types';
 import type { Thresholds } from '../storage/settings';
-import { ProviderError } from '../errors';
 import { buildPrompt } from '../analysis/prompt';
 import { RESPONSE_JSON_SCHEMA } from '../analysis/schema';
 import { finalizeResult, parseWithRepair } from './base';
