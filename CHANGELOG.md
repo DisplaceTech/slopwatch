@@ -6,6 +6,10 @@ All notable changes to Slopwatch are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-20
+
+First signed beta — the unlisted, Mozilla-signed `.xpi` self-distribution release.
+
 ### Fixed (navigation)
 
 - **Results, highlights, and the toolbar badge now reset on navigation.**

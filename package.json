@@ -1,7 +1,7 @@
 {
   "name": "slopwatch",
   "description": "On-demand, pluggable browser extension that estimates how likely page content is AI-generated.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "private": true,
   "license": "MIT",
