@@ -69,7 +69,9 @@ export const DEFAULT_SETTINGS: Settings = {
   // silently producing fake results.
   activeProvider: 'anthropic',
   providers: {
-    anthropic: { model: 'claude-haiku-4-5' },
+    // Sonnet is the default for accuracy — Haiku tends to under-detect. Users
+    // can switch to a cheaper (haiku) or stronger (opus) model in settings.
+    anthropic: { model: 'claude-sonnet-4-6' },
     openai_compat: { model: 'gpt-4o-mini', baseUrl: 'https://api.openai.com/v1' },
     ollama: { model: 'llama3.1', baseUrl: 'http://localhost:11434' },
     mock: { model: 'mock-1' },

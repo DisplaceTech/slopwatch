@@ -6,6 +6,17 @@ All notable changes to Slopwatch are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Reworked the analysis prompt to stop under-detecting.** The old prompt put
+  responsible-use copy ("avoid over-claiming", "false positives are common") in
+  the *model's* instructions, biasing every score toward a timid middle — small
+  models scored obvious AI text at <15%. The prompt now gives the model a concrete
+  marker rubric and calibration bands and tells it to commit to the evidence (the
+  uncertainty framing stays in the UI). Default Anthropic model is now
+  `claude-sonnet-4-6` (Haiku under-detects); cheaper/stronger models remain a
+  one-field change in settings.
+
 ### Fixed
 
 - **The Mock provider could run in a real install, and a stale Mock result could
