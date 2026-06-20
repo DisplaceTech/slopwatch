@@ -1,10 +1,20 @@
 name: Release
 
 # Cut a release by pushing a SemVer tag that matches package.json, e.g. v0.2.0.
-# Builds the Firefox package + AMO sources archive and the Chromium package,
-# attaches them to a GitHub Release, and — when AMO/CWS credentials are present
-# as secrets — submits to the stores. Submission steps are skipped (not failed)
-# when secrets are absent, so tagging always produces installable artifacts.
+#
+# On tag this:
+#   1. runs the quality gates,
+#   2. builds the Firefox package + AMO sources archive and the Chromium package,
+#   3. signs an UNLISTED .xpi via AMO (self-distribution — Mozilla signs it but
+#      does not list it publicly), and
+#   4. attaches the signed .xpi + zips to a GitHub Release so you can hand people
+#      the install link.
+#
+# Signing is skipped (not failed) when AMO credentials are absent, so tagging
+# always at least produces the unsigned build artifacts.
+#
+# Required secrets for signing: AMO_JWT_ISSUER, AMO_JWT_SECRET
+# (addons.mozilla.org → Developer Hub → Manage API Keys).
 
 on:
   push:
@@ -53,15 +63,8 @@ jobs:
       - name: Package Chromium
         run: pnpm zip
 
-      - name: Attach packages to the GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            .output/*.zip
-          generate_release_notes: true
-
       # The `secrets` context isn't available in `if:`, so probe for credentials
-      # here and gate the submission steps on these outputs instead.
+      # here and gate the signing/submission steps on these outputs instead.
       - name: Detect store credentials
         id: creds
         env:
@@ -73,12 +76,33 @@ jobs:
           [ -n "$AMO_JWT_ISSUER" ] && [ -n "$AMO_JWT_SECRET" ] && echo "amo=true" >> "$GITHUB_OUTPUT" || echo "amo=false" >> "$GITHUB_OUTPUT"
           [ -n "$CWS_CLIENT_ID" ] && [ -n "$CWS_REFRESH_TOKEN" ] && echo "cws=true" >> "$GITHUB_OUTPUT" || echo "cws=false" >> "$GITHUB_OUTPUT"
 
-      - name: Submit to AMO (Firefox)
+      - name: Sign unlisted XPI (Firefox)
         if: steps.creds.outputs.amo == 'true'
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
-        run: pnpm dlx wxt submit --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip
+        run: |
+          # Uploads the build to AMO, which signs it as an unlisted add-on and
+          # returns an installable .xpi (no public listing, typically no review).
+          pnpm dlx web-ext@8 sign \
+            --channel=unlisted \
+            --source-dir=.output/firefox-mv3 \
+            --artifacts-dir=.output/xpi
+          TAG="${GITHUB_REF_NAME#v}"
+          SIGNED="$(ls .output/xpi/*.xpi | head -1)"
+          mv "$SIGNED" ".output/xpi/slopwatch-${TAG}.xpi"
+          echo "::notice::Signed unlisted XPI → slopwatch-${TAG}.xpi"
+
+      - name: Attach signed XPI + packages to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # The .xpi is the installable artifact; the zips are the store packages
+          # and the AMO sources archive. Missing globs (no signing) are ignored.
+          files: |
+            .output/xpi/*.xpi
+            .output/*.zip
+          fail_on_unmatched_files: false
+          generate_release_notes: true
 
       - name: Submit to Chrome Web Store (optional)
         if: steps.creds.outputs.cws == 'true'
@@ -89,6 +113,6 @@ jobs:
           CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: pnpm dlx wxt submit --chrome-zip .output/*-chrome.zip
 
-      - name: Submission skipped notice
+      - name: Signing skipped notice
         if: steps.creds.outputs.amo == 'false'
-        run: echo "::notice::AMO credentials not set — built and attached artifacts to the Release, but did not submit to a store."
+        run: echo "::notice::AMO credentials not set — attached the unsigned build artifacts to the Release, but did not sign an installable XPI. Add AMO_JWT_ISSUER and AMO_JWT_SECRET as repo secrets."

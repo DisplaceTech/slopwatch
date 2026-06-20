@@ -179,8 +179,59 @@ AMO won't publish a listed version without these. Draft them in `CHANGELOG.md`-a
 
 ---
 
-## Not yet automated (M5)
+## Automated: tag → signed unlisted XPI (the easy path)
 
-Today these steps are manual. In **M5** we'll add `release.yml` so that pushing a `v*.*.*` tag runs
-CI, asserts `package.json` version == tag, builds the package + sources, and calls `wxt submit`
-gated on the tag — turning steps 6–7 into "push a tag." Until then, this runbook is the process.
+`release.yml` turns the unlisted-signing flow into "push a tag." On a `v*.*.*` tag it runs the
+gates, asserts `package.json` version == tag, builds, **signs an unlisted `.xpi` via AMO**, and
+attaches it (plus the zips and sources archive) to a GitHub Release.
+
+**One-time setup:**
+
+1. Get AMO API credentials: addons.mozilla.org → **Developer Hub → Manage API Keys** → note the
+   **JWT issuer** and **JWT secret**.
+2. Add them as repo secrets (Settings → Secrets and variables → Actions):
+   `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`. (Without them the workflow still builds, but skips signing.)
+3. Confirm the Gecko ID is set (it is: `slopwatch@displace.tech` in `wxt.config.ts`) — the ID must
+   be stable across releases for signing and updates to work.
+
+**Each release:** bump `package.json` + `CHANGELOG.md`, commit, then:
+
+```bash
+git tag v0.x.y && git push --tags
+```
+
+The Release will carry `slopwatch-0.x.y.xpi`. Hand testers the install link:
+
+```
+https://github.com/DisplaceTech/slopwatch/releases/latest/download/slopwatch-0.x.y.xpi
+```
+
+(They open it in Firefox → **Add**. The filename includes the version, so the per-release URL is the
+reliable one to share.)
+
+### Local dry run (before trusting CI)
+
+```bash
+export AMO_JWT_ISSUER=... AMO_JWT_SECRET=...
+pnpm build:firefox
+pnpm dlx web-ext@8 sign \
+  --channel=unlisted \
+  --source-dir=.output/firefox-mv3 \
+  --artifacts-dir=.output/xpi \
+  --api-key="$AMO_JWT_ISSUER" --api-secret="$AMO_JWT_SECRET"
+# → .output/xpi/<name>-<version>.xpi  (drag into Firefox to install)
+```
+
+> **Gotcha:** AMO rejects re-uploading a version it has already signed. If a signing run fails after
+> the upload, bump the patch version and re-tag rather than reusing the tag.
+
+### Auto-updates (optional, not yet wired)
+
+A hosted `.xpi` does **not** auto-update on its own. To make installs update themselves, we'd add
+`browser_specific_settings.gecko.update_url` to the manifest pointing at an `updates.json` we host
+(e.g. on the docs site / a `releases/latest` asset), and have `release.yml` regenerate that manifest
+each tag. Ask when you want this — it's a small follow-up.
+
+> Listed AMO / Chrome Web Store submission is a separate channel (a version can't go to both listed
+> and unlisted). When you want the public listing, we switch the Firefox step from `web-ext sign
+> --channel=unlisted` to `wxt submit`. The CWS step is already present and gated on `CWS_*` secrets.
