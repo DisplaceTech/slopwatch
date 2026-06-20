@@ -45,15 +45,22 @@ export default defineBackground(() => {
     recordRun: recordDiagnostic,
   });
 
+  function resetTab(tabId: number): void {
+    orchestrator.forgetTab(tabId);
+    void setBadge(tabId, '');
+  }
+
   browser.tabs.onRemoved.addListener((tabId) => orchestrator.forgetTab(tabId));
+  // Reset on a top-level navigation: a new document is loading (full nav) or the
+  // URL changed. SPA route changes that don't reload are reported by the in-page
+  // script via the 'navigated' message below.
   browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
-    if (changeInfo.url) {
-      orchestrator.forgetTab(tabId);
-      void setBadge(tabId, '');
+    if (changeInfo.url || changeInfo.status === 'loading') {
+      resetTab(tabId);
     }
   });
 
-  onBackgroundMessage(async (msg) => {
+  onBackgroundMessage(async (msg, sender) => {
     switch (msg.type) {
       case 'getStatus':
         return orchestrator.getStatus(msg.tabId);
@@ -62,6 +69,11 @@ export default defineBackground(() => {
       case 'cancel':
         orchestrator.cancel(msg.tabId);
         return { ok: true };
+      case 'navigated': {
+        // Sent by the in-page script on an SPA route change. Reset the sender's tab.
+        if (sender.tab?.id !== undefined) resetTab(sender.tab.id);
+        return { ok: true };
+      }
       case 'testConnection': {
         const settings = await getSettings();
         try {

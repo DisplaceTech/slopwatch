@@ -6,6 +6,17 @@ All notable changes to Slopwatch are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed (navigation)
+
+- **Results, highlights, and the toolbar badge now reset on navigation.**
+  Previously a score/overlay persisted onto the next page — including across
+  single-page-app route changes (e.g. moving around LinkedIn), where the page
+  never reloads. The background resets a tab's status + badge on any top-level
+  load, and the in-page script now detects SPA route changes (polling
+  `location.href` plus popstate/hashchange — the isolated world can't hook the
+  page's own `pushState`), tears down the highlight overlay, and tells the
+  background to clear the badge.
+
 ### Changed
 
 - **Reworked the analysis prompt to stop under-detecting.** The old prompt put

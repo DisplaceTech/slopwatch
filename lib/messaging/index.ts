@@ -43,12 +43,15 @@ export type GetStatusMessage = { channel: 'bg'; type: 'getStatus'; tabId: number
 export type TestConnectionMessage = { channel: 'bg'; type: 'testConnection'; provider: ProviderId };
 export type ListModelsMessage = { channel: 'bg'; type: 'listModels'; provider: ProviderId };
 export type CancelMessage = { channel: 'bg'; type: 'cancel'; tabId: number };
+/** Sent by the in-page script when the page navigates (incl. SPA route changes). */
+export type NavigatedMessage = { channel: 'bg'; type: 'navigated' };
 export type BackgroundMessage =
   | AnalyzeMessage
   | GetStatusMessage
   | TestConnectionMessage
   | ListModelsMessage
-  | CancelMessage;
+  | CancelMessage
+  | NavigatedMessage;
 
 export type TabPhase =
   | 'idle'
@@ -85,6 +88,12 @@ export interface BackgroundResponseMap {
   testConnection: { ok: boolean; detail?: string };
   listModels: { ok: true; models: string[] } | { ok: false; error: SerializedProviderError };
   cancel: { ok: true };
+  navigated: { ok: true };
+}
+
+/** Minimal shape of the message sender we rely on (the originating tab). */
+export interface MessageSender {
+  tab?: { id?: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +131,10 @@ function isBackgroundMessage(value: unknown): value is BackgroundMessage {
 type AnyContentResponse = ContentResponseMap[ContentMessage['type']];
 type AnyBackgroundResponse = BackgroundResponseMap[BackgroundMessage['type']];
 type ContentHandler = (msg: ContentMessage) => Promise<AnyContentResponse>;
-type BackgroundHandler = (msg: BackgroundMessage) => Promise<AnyBackgroundResponse>;
+type BackgroundHandler = (
+  msg: BackgroundMessage,
+  sender: MessageSender,
+) => Promise<AnyBackgroundResponse>;
 
 export function onContentMessage(handler: ContentHandler): void {
   browser.runtime.onMessage.addListener((message: unknown) => {
@@ -132,8 +144,8 @@ export function onContentMessage(handler: ContentHandler): void {
 }
 
 export function onBackgroundMessage(handler: BackgroundHandler): void {
-  browser.runtime.onMessage.addListener((message: unknown) => {
+  browser.runtime.onMessage.addListener((message: unknown, sender) => {
     if (!isBackgroundMessage(message)) return undefined;
-    return handler(message);
+    return handler(message, sender as MessageSender);
   });
 }

@@ -1,5 +1,5 @@
 import { defineUnlistedScript } from 'wxt/utils/define-unlisted-script';
-import { onContentMessage } from '@/lib/messaging';
+import { onContentMessage, sendToBackground } from '@/lib/messaging';
 import { extractContent } from '@/lib/extraction';
 import type { AnalysisResult } from '@/lib/types';
 import type { Appearance } from '@/lib/storage/settings';
@@ -22,7 +22,7 @@ export default defineUnlistedScript(() => {
     return;
   }
 
-  const state: SlopwatchState = { elements: [], layer: null, cleanup: null };
+  const state: SlopwatchState = { elements: [], layer: null, cleanup: null, annotatedUrl: null };
   w.__slopwatch = state;
 
   onContentMessage(async (msg) => {
@@ -38,20 +38,47 @@ export default defineUnlistedScript(() => {
       }
       case 'annotate': {
         renderHighlights(state, msg.result, msg.appearance);
+        state.annotatedUrl = location.href;
         return { ok: true };
       }
       case 'clearAnnotations': {
         teardown(state);
+        state.annotatedUrl = null;
         return { ok: true };
       }
     }
   });
+
+  // SPA route changes don't reload the page, so the highlight overlay and the
+  // toolbar badge would otherwise persist onto an unrelated view. We can't patch
+  // the page's history.pushState from this isolated world, so we POLL
+  // location.href (plus popstate/hashchange for instant back/forward). On a URL
+  // change away from the analyzed page, tear the overlay down and ask the
+  // background to reset this tab.
+  installNavigationWatcher(state);
 });
+
+function installNavigationWatcher(state: SlopwatchState): void {
+  const onNav = () => {
+    if (state.annotatedUrl !== null && location.href !== state.annotatedUrl) {
+      teardown(state);
+      state.annotatedUrl = null;
+      void sendToBackground({ channel: 'bg', type: 'navigated' }).catch(() => {});
+    }
+  };
+  window.addEventListener('popstate', onNav);
+  window.addEventListener('hashchange', onNav);
+  // Catches pushState/replaceState navigations (which the page performs in its
+  // own world and we can't hook directly). Cheap; only runs on analyzed pages.
+  window.setInterval(onNav, 500);
+}
 
 interface SlopwatchState {
   elements: HTMLElement[];
   layer: ShadowRoot | null;
   cleanup: (() => void) | null;
+  /** URL at which the current highlights/badge were produced (for nav reset). */
+  annotatedUrl: string | null;
 }
 
 const HOST_ID = 'slopwatch-annotation-host';
