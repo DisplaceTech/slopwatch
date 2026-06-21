@@ -64,15 +64,16 @@ export type Appearance = Settings['appearance'];
 
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
-  // A real provider by default. The Mock provider is dev-only (see createProvider)
-  // — a fresh install is "not configured" and the UI prompts setup rather than
-  // silently producing fake results.
-  activeProvider: 'anthropic',
+  // Default to OpenRouter + GLM 5.2 (AD-4: OpenAI-compat as gateway). This is
+  // meaningfully cheaper than Claude Sonnet for Slopwatch's prompt shapes while
+  // maintaining detection quality. Existing users keep their configured provider
+  // via the v1 settings round-trip; this only affects fresh installs / resetSettings().
+  activeProvider: 'openai_compat',
   providers: {
-    // Sonnet is the default for accuracy — Haiku tends to under-detect. Users
-    // can switch to a cheaper (haiku) or stronger (opus) model in settings.
     anthropic: { model: 'claude-sonnet-4-6' },
-    openai_compat: { model: 'gpt-4o-mini', baseUrl: 'https://api.openai.com/v1' },
+    // TODO(slopwatch): bump to z-ai/glm-5.2-YYYYMMDD canonical slug once that form
+    // is stable on OpenRouter, or keep the alias if it auto-tracks the latest version.
+    openai_compat: { model: 'z-ai/glm-5.2', baseUrl: 'https://openrouter.ai/api/v1' },
     ollama: { model: 'llama3.1', baseUrl: 'http://localhost:11434' },
     mock: { model: 'mock-1' },
   },

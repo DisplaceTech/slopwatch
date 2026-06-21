@@ -15,8 +15,8 @@ describe('options', () => {
     expect(await screen.findByRole('heading', { name: /slopwatch settings/i })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /anthropic/i })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /ollama/i })).toBeInTheDocument();
-    // Key field (not configured by default) is a password input — write-only.
-    const key = screen.getByLabelText(/api key/i) as HTMLInputElement;
+    // Anthropic key field (not configured by default) is a password input — write-only.
+    const key = screen.getByLabelText(/api key/i, { selector: '#anthropic-key' }) as HTMLInputElement;
     expect(key.type).toBe('password');
     expect(screen.getByLabelText(/likely human below/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/highlight style/i)).toBeInTheDocument();
@@ -32,9 +32,11 @@ describe('options', () => {
 
   it('saves the key write-only (configured state, never echoed) and can clear it', async () => {
     render(<App />);
-    const key = (await screen.findByLabelText(/api key/i)) as HTMLInputElement;
+    // Target the Anthropic key field specifically — the page has multiple "API key" inputs.
+    const key = (await screen.findByLabelText(/api key/i, { selector: '#anthropic-key' })) as HTMLInputElement;
     fireEvent.change(key, { target: { value: 'sk-ant-secret' } });
-    fireEvent.click(screen.getByRole('button', { name: /save key/i }));
+    const [firstSaveKeyBtn] = screen.getAllByRole('button', { name: /save key/i });
+    fireEvent.click(firstSaveKeyBtn!);
 
     await waitFor(() => expect(screen.getByText(/configured/i)).toBeInTheDocument());
     // The secret is stored but never rendered back.

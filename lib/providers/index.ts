@@ -4,6 +4,7 @@ import { getSecret } from '../storage/secrets';
 import { MockProvider } from './mock';
 import { AnthropicProvider } from './anthropic';
 import { OllamaProvider } from './ollama';
+import { OpenAICompatProvider } from './openai-compat';
 import { ProviderError } from '../errors';
 
 /**
@@ -31,12 +32,10 @@ export async function createProvider(settings: Settings): Promise<AnalysisProvid
     }
     case 'ollama':
       return new OllamaProvider(cfg.model, cfg.baseUrl, settings.thresholds);
-    case 'openai_compat':
-      throw new ProviderError(
-        'unknown',
-        "The OpenAI-compatible provider isn't implemented yet. Use Anthropic, Ollama, or Mock.",
-        { retryable: false },
-      );
+    case 'openai_compat': {
+      const key = await getSecret('openai_compat');
+      return new OpenAICompatProvider(cfg.model, cfg.baseUrl, key, settings.thresholds);
+    }
   }
 }
 
@@ -44,4 +43,5 @@ export { isProviderConfigured } from './readiness';
 export { MockProvider } from './mock';
 export { AnthropicProvider, estimateCost } from './anthropic';
 export { OllamaProvider, ollamaOriginsSnippet } from './ollama';
+export { OpenAICompatProvider } from './openai-compat';
 export * from './base';

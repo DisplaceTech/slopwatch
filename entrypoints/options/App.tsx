@@ -35,7 +35,9 @@ type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; detail?: string }
 export function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [anthropicConfigured, setConfigured] = useState(false);
+  const [openaiCompatConfigured, setOpenAICompatConfigured] = useState(false);
   const [keyInput, setKeyInput] = useState('');
+  const [openaiCompatKeyInput, setOpenAICompatKeyInput] = useState('');
   const [test, setTest] = useState<Record<string, TestState>>({});
   const [ollamaModels, setOllamaModels] = useState<string[] | null>(null);
   const [cacheEntries, setCacheEntries] = useState<number | null>(null);
@@ -45,6 +47,7 @@ export function App() {
     void (async () => {
       setSettings(await getSettings());
       setConfigured(await hasSecret('anthropic'));
+      setOpenAICompatConfigured(await hasSecret('openai_compat'));
       setCacheEntries((await cacheStats()).entries);
       setDiag(await listDiagnostics());
     })();
@@ -100,6 +103,19 @@ export function App() {
   const clearKey = async () => {
     await clearSecret('anthropic');
     setConfigured(false);
+  };
+
+  const saveOpenAICompatKey = async () => {
+    if (!openaiCompatKeyInput.trim()) return;
+    await setSecret('openai_compat', openaiCompatKeyInput.trim(), settings.persistSecrets);
+    setOpenAICompatConfigured(true);
+    setOpenAICompatKeyInput('');
+    await patch({ activeProvider: 'openai_compat', onboarded: true });
+  };
+
+  const clearOpenAICompatKey = async () => {
+    await clearSecret('openai_compat');
+    setOpenAICompatConfigured(false);
   };
 
   const togglePersist = async (checked: boolean) => {
@@ -195,6 +211,49 @@ export function App() {
           server. The browser exposes it client-side — prefer a scoped/limited key.
         </p>
         <TestButton state={test.anthropic} onClick={() => testConnection('anthropic')} />
+      </section>
+
+      <section>
+        <h2>OpenAI-compatible</h2>
+        <p className="hint">
+          Works with OpenRouter, vanilla OpenAI, Azure OpenAI, and other OpenAI-compatible
+          gateways. The default is OpenRouter + GLM 5.2.
+        </p>
+        <label htmlFor="oc-base">Base URL</label>
+        <input
+          id="oc-base"
+          value={settings.providers.openai_compat.baseUrl ?? ''}
+          onChange={(e) => setProviderField('openai_compat', 'baseUrl', e.target.value)}
+        />
+        <label htmlFor="oc-model">Model</label>
+        <input
+          id="oc-model"
+          value={settings.providers.openai_compat.model}
+          onChange={(e) => setProviderField('openai_compat', 'model', e.target.value)}
+        />
+        <label htmlFor="oc-key">API key</label>
+        {openaiCompatConfigured ? (
+          <p className="configured">
+            Configured ✓{' '}
+            <button className="link" onClick={clearOpenAICompatKey}>Clear key</button>
+          </p>
+        ) : (
+          <div className="row">
+            <input
+              id="oc-key"
+              type="password"
+              placeholder="sk-or-…"
+              value={openaiCompatKeyInput}
+              onChange={(e) => setOpenAICompatKeyInput(e.target.value)}
+            />
+            <button onClick={saveOpenAICompatKey}>Save key</button>
+          </div>
+        )}
+        <p className="hint">
+          Your key goes directly from your browser to the gateway and is never sent to any Slopwatch
+          server. Prefer a scoped or limited key.
+        </p>
+        <TestButton state={test.openai_compat} onClick={() => testConnection('openai_compat')} />
       </section>
 
       <section>
@@ -365,5 +424,5 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
 
 // The Mock provider is only offered in development builds — never in production.
 const PROVIDER_OPTIONS: ProviderId[] = import.meta.env.DEV
-  ? ['anthropic', 'ollama', 'mock']
-  : ['anthropic', 'ollama'];
+  ? ['anthropic', 'openai_compat', 'ollama', 'mock']
+  : ['anthropic', 'openai_compat', 'ollama'];
