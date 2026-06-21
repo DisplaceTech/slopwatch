@@ -48,7 +48,8 @@ describe('popup', () => {
   });
 
   it('shows the Run button once a provider is configured', async () => {
-    await setSecret('anthropic', 'sk-ant-test', false);
+    // Default active provider is openai_compat; set its key so the popup unlocks.
+    await setSecret('openai_compat', 'or-test-key', false);
     render(<App />);
     expect(await screen.findByRole('button', { name: /run analysis/i })).toBeInTheDocument();
     expect(document.querySelector('.privacy')).toBeTruthy();

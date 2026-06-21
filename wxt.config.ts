@@ -17,6 +17,7 @@ export default defineConfig({
     optional_host_permissions: [
       'https://api.anthropic.com/*',
       'https://api.openai.com/*',
+      'https://openrouter.ai/*',
       'http://localhost/*',
       'http://127.0.0.1/*',
     ],

@@ -12,6 +12,25 @@ automatically and can't silently regress; prefer that over prose where possible.
 
 ---
 
+## Default provider switched from Anthropic to OpenRouter + GLM 5.2
+
+**What changed:** `DEFAULT_SETTINGS.activeProvider` is now `openai_compat` pointing at
+`https://openrouter.ai/api/v1` with model `z-ai/glm-5.2`. The previous default was `anthropic /
+claude-sonnet-4-6`.
+
+**Why:** GLM 5.2 (Z.ai via OpenRouter) costs ~$1.20/1M input + $4.10/1M output tokens versus
+Claude Sonnet 4.6 at $3/1M + $15/1M — roughly 3-4× cheaper for Slopwatch's prompt shape (dense
+paragraph analysis with a large system prompt). This validates AD-4 ("OpenAI-compat adapter as
+gateway"). The Anthropic adapter remains first-class; users who already configured Anthropic keep
+it via the v1 settings round-trip.
+
+**What to watch:** GLM 5.2 is a reasoning model with a different response style than Claude.
+Calibration (score distribution, false-positive rate on clearly-human text) should be monitored
+in early beta. The `overall` score range and `reasoning` quality may differ. If detection quality
+regresses, switching back is a one-line change in `DEFAULT_SETTINGS`.
+
+---
+
 ## Comment/review-triggered agent workflows must gate on collaborator permission BEFORE checkout
 
 **Symptom:** `claude-pr-feedback.yml` fired on any `@claude` comment/review with no actor
